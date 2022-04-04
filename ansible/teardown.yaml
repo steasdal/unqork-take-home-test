@@ -1,0 +1,30 @@
+---
+
+- name: Teardown the whole enchilada
+  hosts: 127.0.0.1
+  connection: local
+  tasks:
+
+    - name: Remove an nginx deployment
+      kubernetes.core.k8s:
+        state: absent
+        kubeconfig: ../terraform/kubeconfig
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nginx
+            namespace: nginx-ns
+
+    - name: Remove a kubernetes namespace
+      kubernetes.core.k8s:
+        name: nginx-ns
+        api_version: v1
+        kind: Namespace
+        state: absent
+        kubeconfig: ../terraform/kubeconfig
+
+    - name: Terfaform Destroy
+      shell: terraform destroy -auto-approve
+      args:
+        chdir: ../terraform

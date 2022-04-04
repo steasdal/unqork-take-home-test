@@ -1,0 +1,61 @@
+---
+
+- name: Setup the whole enchilada
+  hosts: 127.0.0.1
+  connection: local
+  tasks:
+
+    - name: Terfaform Init
+      shell: terraform init
+      args:
+        chdir: ../terraform
+
+    - name: Terfaform Apply
+      shell: terraform apply -auto-approve
+      args:
+        chdir: ../terraform
+
+    - name: Dump Kubeconfig
+      shell: aws eks --region $(terraform output -raw region) update-kubeconfig --name $(terraform output -raw cluster_name) --kubeconfig ./kubeconfig
+      args:
+        chdir: ../terraform
+    
+    - name: Create a kubernetes namespace
+      kubernetes.core.k8s:
+        name: nginx-ns
+        api_version: v1
+        kind: Namespace
+        state: present
+        kubeconfig: ../terraform/kubeconfig
+
+    - name: Create an nginx deployment
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: ../terraform/kubeconfig
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nginx
+            namespace: nginx-ns
+            labels:
+              app: nginx
+          spec:
+            replicas: 3
+            strategy:
+              rollingUpdate:
+                maxSurge: 2
+                maxUnavailable: 1
+            selector:
+              matchLabels:
+                app: nginx
+            template:
+              metadata:
+                labels:
+                  app: nginx
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:1.21.6
+                  ports:
+                  - containerPort: 80
